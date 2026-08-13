@@ -1,0 +1,124 @@
+import streamlit as st
+import joblib
+import numpy as np
+import pandas as pd
+import plotly.graph_objects as go
+import plotly.express as px
+
+# 1. إعدادات الصفحة والهوية البصرية
+st.set_page_config(page_title="ASA-Smart-Mix2 | AI Optimizer", layout="wide", page_icon="🏗️")
+
+# تطبيق تنسيق CSS مخصص لجعل الواجهة احترافية
+st.markdown("""
+    <style>
+    .main { background-color: #f8f9fa; }
+    .stMetric { border: 1px solid #004a99; padding: 20px; border-radius: 12px; background: white; box-shadow: 2px 2px 5px rgba(0,0,0,0.05); }
+    .prediction-card { background-color: #e3f2fd; padding: 25px; border-radius: 15px; border-left: 10px solid #004a99; margin-bottom: 20px; }
+    h1 { color: #004a99; font-family: 'Helvetica Neue', sans-serif; }
+    </style>
+    """, unsafe_allow_html=True)
+
+# 2. تحميل الموديل والبيانات (مع معالجة الأخطاء)
+@st.cache_resource
+def load_assets():
+    try:
+        model = joblib.load('concrete_model.joblib')
+        scaler = joblib.load('scaler.joblib')
+        # تحميل قاعدة البيانات للمقارنة (تأكدي من وجودها في GitHub بنفس الاسم)
+        db = pd.read_csv('Trail3_DIAMOND_DATABASE.csv')
+        return model, scaler, db
+    except Exception as e:
+        st.error(f"Error loading files: {e}")
+        return None, None, None
+
+model, scaler, db = load_assets()
+
+# 3. الهيكل الرئيسي للواجهة
+st.markdown("<h1 style='text-align: center;'>🏗️ ASA-Smart-Mix2</h1>", unsafe_allow_html=True)
+st.markdown("<p style='text-align: center; color: #666;'>AI-Powered Sustainability Optimizer for Recycled Aggregate Concrete</p>", unsafe_allow_html=True)
+st.markdown("---")
+
+# 4. القائمة الجانبية للمدخلات (Input Sidebar)
+st.sidebar.header("🛠️ Mix Design Parameters")
+with st.sidebar:
+    st.subheader("Binders & Water")
+    cement = st.number_input("Cement (kg/m³)", 200, 600, 350)
+    sf = st.slider("Silica Fume (kg/m³)", 0, 100, 0)
+    fa = st.slider("Fly Ash (kg/m³)", 0, 200, 0)
+    wc = st.slider("W/C Ratio", 0.25, 0.75, 0.45)
+    
+    st.subheader("Aggregates")
+    nca = st.number_input("Natural Coarse Agg. (kg/m³)", 500, 1300, 1100)
+    nfa = st.number_input("Fine Aggregate (kg/m³)", 400, 1000, 700)
+    rca_p = st.slider("RCA Replacement (%)", 0, 100, 0)
+    mrca_p = st.slider("MRCA Replacement (%)", 0, 100, 0)
+    
+    st.subheader("Additives")
+    sp = st.slider("Superplasticizer (kg/m³)", 0.0, 15.0, 2.0)
+    fiber = st.slider("Nylon Fiber (kg/m³)", 0.0, 5.0, 0.0)
+
+# 5. المعالجة الرياضية والتنبؤ
+# حساب الماء أوتوماتيكياً بناءً على W/C والمواد الإسمنتية
+total_cementitious = cement + sf + fa
+water = wc * total_cementitious
+
+# تجهيز البيانات للموديل (الترتيب الـ 11 الصارم)
+# ['Cement', 'Water', 'NCA', 'NFA', 'RCA_P', 'MRCA_P', 'Silica_Fume', 'Fly_Ash', 'Nylon_Fiber', 'W_C', 'SP']
+features_array = np.array([[cement, water, nca, nfa, rca_p, mrca_p, sf, fa, fiber, wc, sp]])
+
+if model is not None:
+    features_scaled = scaler.transform(features_array)
+    prediction = model.predict(features_scaled)[0]
+    
+    # حساب الكربون والتكلفة (بناءً على المعادلات المعتمدة في قاعدة بياناتك)
+    co2 = (cement*0.85 + sf*0.02 + fa*0.01 + nca*0.005 + nfa*0.005 + sp*0.7 + fiber*2.5)
+    cost = (cement*0.1 + sf*0.25 + fa*0.03 + nca*0.015 + nfa*0.012 + sp*1.5 + fiber*4.0)
+
+    # 6. عرض النتائج (Dashboard)
+    col_res1, col_res2, col_res3 = st.columns(3)
+    
+    with col_res1:
+        st.metric("Predicted Strength (28d)", f"{prediction:.2f} MPa")
+        # الرسم الراداري (Radar Chart)
+        fig_radar = go.Figure()
+        fig_radar.add_trace(go.Scatterpolar(
+            r=[prediction/100, (100-rca_p)/100, (100-mrca_p)/100, (500-co2)/500],
+            theta=['Strength', 'Eco-Agg', 'Multi-Cycle', 'Low Carbon'],
+            fill='toself', name='Current Mix'
+        ))
+        fig_radar.update_layout(polar=dict(radialaxis=dict(visible=False, range=[0, 1])), showlegend=False)
+        st.plotly_chart(fig_radar, use_container_width=True)
+
+    with col_res2:
+        st.metric("CO2 Emissions", f"{co2:.1f} kg/m³")
+        # عداد الاستدامة (Sustainability Gauge)
+        sust_score = (prediction / (co2 * cost)) * 1000 # سكيل للتوضيح
+        fig_gauge = go.Figure(go.Indicator(
+            mode = "gauge+number",
+            value = sust_score,
+            title = {'text': "Sustainability Index"},
+            gauge = {'axis': {'range': [0, 5]},
+                     'bar': {'color': "#004a99"},
+                     'steps' : [
+                         {'range': [0, 1.5], 'color': "#ffcdd2"},
+                         {'range': [1.5, 3.5], 'color': "#fff9c4"},
+                         {'range': [3.5, 5], 'color': "#c8e6c9"}]}))
+        st.plotly_chart(fig_gauge, use_container_width=True)
+
+    with col_res3:
+        st.metric("Estimated Cost", f"${cost:.2f}")
+        # المقارنة المرجعية (Benchmarking)
+        st.subheader("📍 Closest Lab Matches")
+        if db is not None:
+            db['diff'] = abs(db['CS_28'] - prediction)
+            closest = db.sort_values('diff').head(3)
+            st.table(closest[['Mix_ID', 'CS_28', 'Sustainability']])
+
+    st.success(f"✅ Analysis Complete for ASA-Smart-Mix2. Efficiency: {((prediction/co2)*10):.2f} Strength/CO2 Unit")
+
+else:
+    st.warning("Please upload 'concrete_model.joblib' and 'scaler.joblib' to GitHub.")
+
+# 7. التذييل
+st.markdown("---")
+st.markdown("<p class='footer-text'>Developed by Eng. Aya Sanad | Faculty of Engineering | 2024</p>", unsafe_allow_html=True)
