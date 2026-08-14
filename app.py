@@ -6,6 +6,7 @@ import plotly.graph_objects as go
 import joblib
 import os
 import math
+from streamlit_gsheets import GSheetsConnection
 
 # =============================================================================
 # 1. إعدادات الصفحة الأساسية
@@ -60,7 +61,7 @@ def check_login():
     return True
 
 # =============================================================================
-# 3. الهيدر الأكاديمي (باللوجوهات الرسمية)
+# 3. الهيدر الأكاديمي
 # =============================================================================
 def show_academic_header():
     col_left, col_mid, col_right = st.columns([1, 3, 1])
@@ -100,11 +101,11 @@ def load_assets():
         scaler = joblib.load('scaler_multi.joblib')
         return models, scaler
     except Exception as e:
-        st.error(f"Error loading models: {e}. Please ensure 'concrete_model_multi.joblib' and 'scaler_multi.joblib' are uploaded.")
+        st.error(f"Error loading models: {e}. Please ensure files are uploaded.")
         return None, None
 
 # =============================================================================
-# 5. محرك التنبؤ والمعادلات الهندسية
+# 5. محرك التنبؤ
 # =============================================================================
 def run_prediction_engine(inputs, prices):
     models, scaler = load_assets()
@@ -172,7 +173,43 @@ def show_radar_chart(results):
     st.plotly_chart(fig, use_container_width=True)
 
 # =============================================================================
-# 7. واجهة الإدخال والنتائج
+# 7. تسجيل البيانات في الشيت
+# =============================================================================
+def log_prediction_to_sheets(inputs, results):
+    try:
+        conn = st.connection("gsheets", type=GSheetsConnection)
+        
+        new_row = pd.DataFrame([{
+            "Timestamp": pd.Timestamp.now().strftime("%Y-%m-%d %H:%M:%S"),
+            "Cement": inputs['Cement'], "Water": inputs['Water'], "W_C": inputs['W_C'], 
+            "NCA": inputs['NCA'], "NFA": inputs['NFA'],
+            "RCA_Weight": inputs['RCA_Weight'], "RCA_P": inputs['RCA_P'], 
+            "MRCA_P": inputs['MRCA_P'], "RFA_Weight": inputs['RFA_Weight'], "RFA_P": inputs['RFA_P'], 
+            "Fly_Ash": inputs['Fly_Ash'], "Silica_Fume": inputs['Silica_Fume'], "Metakaolin": inputs['Metakaolin'], 
+            "GGBFS": inputs['GGBFS'], "RHA_P": inputs['RHA_P'], 
+            "Nylon_Fiber": inputs['Nylon_Fiber'], "Basalt_Fiber_Vol": inputs['Basalt_Fiber_Vol'], "Natural_Fiber": inputs['Natural_Fiber'], 
+            "SP": inputs['SP'], "Agg_Size": inputs['Agg_Size'], "Density": inputs['Density'],
+            "Predicted_CS28": round(results['CS28'], 2),
+            "Predicted_CO2": round(results['CO2'], 2),
+            "Predicted_Cost": round(results['Cost'], 2)
+        }])
+
+        try:
+            existing_data = conn.read(worksheet="Predictions_V2", ttl=0)
+            if existing_data is not None and not existing_data.empty:
+                updated_df = pd.concat([existing_data, new_row], ignore_index=True)
+            else:
+                updated_df = new_row
+        except:
+            updated_df = new_row
+            
+        conn.update(worksheet="Predictions_V2", data=updated_df)
+        st.toast("✅ تم الحفظ في قاعدة البيانات بنجاح", icon="💾")
+    except Exception as e:
+        st.sidebar.error(f"Logging Error: {e}")
+
+# =============================================================================
+# 8. واجهة الإدخال والنتائج
 # =============================================================================
 def show_input_section():
     st.markdown("### 🏗️ Design Mix Inputs (21 Parameters)")
@@ -232,10 +269,13 @@ def show_input_section():
             'Natural_Fiber': natural, 'SP': sp, 'Agg_Size': agg_size, 'Density': density
         }
 
-        with st.spinner("Processing AI Models..."):
+        with st.spinner("Processing AI Models & Logging Results..."):
             res = run_prediction_engine(inputs, prices)
             if res:
                 st.success("✅ Analysis Completed: Using Hybrid AI-Engineering Model")
+                
+                # إرسال البيانات للشيت
+                log_prediction_to_sheets(inputs, res)
                 
                 t_mech, t_env, t_eco = st.tabs(["🏗️ Mechanical", "🌱 Environmental", "💰 Economic"])
                 
@@ -260,7 +300,7 @@ def show_input_section():
                         show_radar_chart(res)
 
 # =============================================================================
-# 8. المُحسّن (Optimizer)
+# 9. المُحسّن (Optimizer)
 # =============================================================================
 def show_optimizer():
     st.header("⚖️ AI-Based Mix Optimizer")
@@ -283,7 +323,7 @@ def show_optimizer():
             st.error(f"Database file error: {e}")
 
 # =============================================================================
-# 9. صفحة الأداء (Performance)
+# 10. صفحة الأداء (Performance)
 # =============================================================================
 def show_performance():
     st.header("📈 Model Performance & Metrics")
@@ -326,7 +366,7 @@ def show_performance():
     if os.path.exists(img_path3): st.image(img_path3, caption="Feature Importance Analysis", use_container_width=True)
 
 # =============================================================================
-# 10. نظام الفيدباك (الشكل الخارجي بدون ربط مؤقتاً)
+# 11. نظام الفيدباك (متصل بجوجل شيت)
 # =============================================================================
 def handle_feedback():
     st.header("📝 User Feedback & Experience")
@@ -349,11 +389,32 @@ def handle_feedback():
         submit = st.form_submit_button("📤 Submit Feedback", use_container_width=True)
         
         if submit:
-            st.success("✅ Thank you! The form layout is ready for Google Sheets integration.")
-            st.balloons()
+            try:
+                conn = st.connection("gsheets", type=GSheetsConnection)
+                
+                feedback_row = pd.DataFrame([{
+                    "Date": pd.Timestamp.now().strftime("%Y-%m-%d %H:%M:%S"),
+                    "Name": user_name if user_name else "Anonymous",
+                    "Email": user_email if user_email else "N/A",
+                    "Stars": stars if stars is not None else "Not rated",
+                    "Feedback": observation if observation else "No comments"
+                }])
+                
+                try:
+                    existing_f = conn.read(worksheet="Feedback_V2", ttl=0)
+                    updated_f = pd.concat([existing_f, feedback_row], ignore_index=True)
+                except:
+                    updated_f = feedback_row
+                    
+                conn.update(worksheet="Feedback_V2", data=updated_f)
+                st.success("✅ Thank you! Feedback recorded successfully in database.")
+                st.balloons()
+                
+            except Exception as e:
+                st.error(f"Connection Error: {e}")
 
 # =============================================================================
-# 11. الوثائق
+# 12. الوثائق
 # =============================================================================
 def show_documentation():
     st.header("📚 Technical Documentation & Methodology")
@@ -385,10 +446,9 @@ def show_documentation():
         """)
 
 # =============================================================================
-# 12. الدالة الرئيسية (Main)
+# 13. الدالة الرئيسية (Main)
 # =============================================================================
 def main():
-    # Footer CSS 
     st.markdown("""
         <style>
         .footer { 
@@ -452,7 +512,6 @@ def main():
         with tabs[4]: handle_feedback()
         with tabs[5]: show_documentation()
         
-        # Footer
         st.markdown("""
             <div class="footer">
                 © 2026 Aya Mohammed Sanad Aboud | Structural Engineering Dept | Mansoura University
