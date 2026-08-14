@@ -31,10 +31,12 @@ def check_login():
 
         with col_mid:
             st.markdown("""
-                <div style='text-align: center;'>
-                    <h1 style='color: #1E3A8A; margin-bottom: 0;'>ASA-PREDICTION MODEL 2</h1>
-                    <h3 style='margin-top: 10px; color: #4B5563;'>By: Aya Mohamed Sanad Aboud</h3>
-                    <p style='font-size: 1.2em; color: #6B7280; font-style: italic;'>Master researcher</p>
+                <div style='text-align: center; font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;'>
+                    <h1 style='color: #1E3A8A; margin-bottom: 5px; font-weight: 800;'>ASA-PREDICTION MODEL 2</h1>
+                    <h3 style='margin-top: 0px; color: #4B5563; font-weight: 600;'>By: Eng. Aya Mohamed Sanad Aboud</h3>
+                    <p style='font-size: 1.15em; color: #374151; font-weight: 500; padding-top: 8px; border-top: 1.5px solid #E5E7EB; display: inline-block;'>
+                        M.Sc. Researcher in Structural Engineering
+                    </p>
                 </div>
             """, unsafe_allow_html=True)
 
@@ -46,13 +48,13 @@ def check_login():
 
         login_col_1, login_col_2, login_col_3 = st.columns([1, 1, 1])
         with login_col_2:
-            pwd = st.text_input("أدخل كلمة المرور للمتابعة", type="password")
-            if st.button("تسجيل الدخول", use_container_width=True):
+            pwd = st.text_input("🔒 Secure Access: Enter Password", type="password")
+            if st.button("Access Dashboard", use_container_width=True):
                 if pwd == "ASA2026":
                     st.session_state.logged_in = True
                     st.rerun()
                 else:
-                    st.error("كلمة المرور غير صحيحة!")
+                    st.error("❌ Invalid Password! Please check and try again.")
         
         return False
     return True
