@@ -17,13 +17,53 @@ st.set_page_config(
 )
 
 # =============================================================================
-# 2. الهيدر الأكاديمي (باللوجوهات الرسمية)
+# 2. دالة التحكم في الدخول (Login)
+# =============================================================================
+def check_login():
+    if 'logged_in' not in st.session_state:
+        st.session_state.logged_in = False
+
+    if not st.session_state.logged_in:
+        col_left, col_mid, col_right = st.columns([1, 2, 1])
+
+        with col_left:
+            st.image("https://raw.githubusercontent.com/ayasanad14799-coder/ASA-PREDICTION-MODEL-2/main/OIP.jfif", width=120)
+
+        with col_mid:
+            st.markdown("""
+                <div style='text-align: center;'>
+                    <h1 style='color: #1E3A8A; margin-bottom: 0;'>ASA-PREDICTION MODEL 2</h1>
+                    <h3 style='margin-top: 10px; color: #4B5563;'>By: Aya Mohamed Sanad Aboud</h3>
+                    <p style='font-size: 1.2em; color: #6B7280; font-style: italic;'>Master researcher</p>
+                </div>
+            """, unsafe_allow_html=True)
+
+        with col_right:
+            st.image("https://raw.githubusercontent.com/ayasanad14799-coder/ASA-PREDICTION-MODEL-2/main/LOGO.png", width=120)
+
+        st.markdown("<br>", unsafe_allow_html=True)
+        st.divider()
+
+        login_col_1, login_col_2, login_col_3 = st.columns([1, 1, 1])
+        with login_col_2:
+            pwd = st.text_input("أدخل كلمة المرور للمتابعة", type="password")
+            if st.button("تسجيل الدخول", use_container_width=True):
+                if pwd == "ASA2026":
+                    st.session_state.logged_in = True
+                    st.rerun()
+                else:
+                    st.error("كلمة المرور غير صحيحة!")
+        
+        return False
+    return True
+
+# =============================================================================
+# 3. الهيدر الأكاديمي (باللوجوهات الرسمية)
 # =============================================================================
 def show_academic_header():
     col_left, col_mid, col_right = st.columns([1, 3, 1])
     
     with col_left:
-        # لوجو الجامعة (تم تحويله للرابط المباشر Raw)
         st.image("https://raw.githubusercontent.com/ayasanad14799-coder/ASA-PREDICTION-MODEL-2/main/LOGO.png", width=130)
         
     with col_mid:
@@ -44,13 +84,12 @@ def show_academic_header():
             """, unsafe_allow_html=True)
             
     with col_right:
-        # لوجو الكلية (تم تحويله للرابط المباشر Raw)
         st.image("https://raw.githubusercontent.com/ayasanad14799-coder/ASA-PREDICTION-MODEL-2/main/OIP.jfif", width=130)
         
     st.divider()
 
 # =============================================================================
-# 3. تحميل الموديلات
+# 4. تحميل الموديلات
 # =============================================================================
 @st.cache_resource
 def load_assets():
@@ -63,13 +102,12 @@ def load_assets():
         return None, None
 
 # =============================================================================
-# 4. محرك التنبؤ والمعادلات الهندسية
+# 5. محرك التنبؤ والمعادلات الهندسية
 # =============================================================================
 def run_prediction_engine(inputs, prices):
     models, scaler = load_assets()
     if models is None or scaler is None: return None
     
-    # الترتيب الصارم للمدخلات الـ 21 كما في كولاب
     feature_list = [
         inputs['Cement'], inputs['Water'], inputs['W_C'], inputs['NCA'], inputs['NFA'], 
         inputs['RCA_Weight'], inputs['RCA_P'], inputs['MRCA_P'], inputs['RFA_Weight'], 
@@ -81,19 +119,16 @@ def run_prediction_engine(inputs, prices):
     vector = np.array(feature_list).reshape(1, -1)
     vector_scaled = scaler.transform(vector)
     
-    # 1. التنبؤات (AI)
     cs28 = models['CS_28'].predict(vector_scaled)[0]
     sts = models['STS'].predict(vector_scaled)[0]
     co2 = models['CO2'].predict(vector_scaled)[0]
     energy = models['Energy'].predict(vector_scaled)[0]
     
-    # 2. المعادلات التقديرية (ACI Code)
     fs = 0.62 * math.sqrt(cs28) if cs28 > 0 else 0
-    em = (4700 * math.sqrt(cs28)) / 1000 if cs28 > 0 else 0 # GPa
+    em = (4700 * math.sqrt(cs28)) / 1000 if cs28 > 0 else 0 
     cs7 = cs28 * 0.70
     cs90 = cs28 * 1.15
     
-    # 3. حساب التكلفة الديناميكية
     total_cost = (
         (inputs['Cement'] * prices['Cement']) +
         (inputs['Water'] * prices['Water']) +
@@ -110,10 +145,9 @@ def run_prediction_engine(inputs, prices):
     }
 
 # =============================================================================
-# 5. الرادار الشامل
+# 6. الرادار الشامل
 # =============================================================================
 def show_radar_chart(results):
-    # تطبيع القيم (Normalization) لرسم الرادار
     strength_score = min(results['CS28'] / 80, 1.0)
     eco_score = 1 - min(results['CO2'] / 600, 1.0)
     cost_score = 1 - min(results['Cost'] / 200, 1.0)
@@ -136,7 +170,7 @@ def show_radar_chart(results):
     st.plotly_chart(fig, use_container_width=True)
 
 # =============================================================================
-# 6. واجهة الإدخال والنتائج
+# 7. واجهة الإدخال والنتائج
 # =============================================================================
 def show_input_section():
     st.markdown("### 🏗️ Design Mix Inputs (21 Parameters)")
@@ -224,7 +258,7 @@ def show_input_section():
                         show_radar_chart(res)
 
 # =============================================================================
-# 7. المُحسّن (Optimizer)
+# 8. المُحسّن (Optimizer)
 # =============================================================================
 def show_optimizer():
     st.header("⚖️ AI-Based Mix Optimizer")
@@ -235,10 +269,8 @@ def show_optimizer():
     if st.button("Search Database"):
         try:
             df = pd.read_excel('Ready_For_AI_Training.xlsx')
-            # الفلترة بناءً على المقاومة
             filtered = df[(df['CS_28'] >= target_cs - tol) & (df['CS_28'] <= target_cs + tol)]
             if not filtered.empty:
-                # الترتيب حسب الأقل في انبعاثات الكربون والطاقة
                 top = filtered.sort_values(by=['CO2', 'Energy'], ascending=[True, True]).head(5)
                 cols = ['Mix_ID', 'Cement', 'W_C', 'CS_28', 'CO2', 'Energy']
                 available = [c for c in cols if c in top.columns]
@@ -249,7 +281,7 @@ def show_optimizer():
             st.error(f"Database file error: {e}")
 
 # =============================================================================
-# 8. صفحة الأداء (Performance)
+# 9. صفحة الأداء (Performance)
 # =============================================================================
 def show_performance():
     st.header("📈 Model Performance & Metrics")
@@ -292,27 +324,138 @@ def show_performance():
     if os.path.exists(img_path3): st.image(img_path3, caption="Feature Importance Analysis", use_container_width=True)
 
 # =============================================================================
-# 9. الدالة الرئيسية (Main)
+# 10. نظام الفيدباك (الشكل الخارجي بدون ربط مؤقتاً)
 # =============================================================================
-def main():
-    show_academic_header()
-    tabs = st.tabs(["🏠 Home", "🚀 Predictor", "⚖️ Optimizer", "📈 Performance", "📝 Feedback", "📚 Docs"])
+def handle_feedback():
+    st.header("📝 User Feedback & Experience")
+    st.write("##### ⭐ How accurate do you find these results based on your lab experience?")
+    stars = st.feedback("stars")
     
-    with tabs[0]:
-        st.markdown("### 🎯 Your AI-Powered Tool for Eco-Efficient Concrete Design")
-        st.info("System optimized using 1,701 laboratory samples predicting mechanical and environmental outcomes.")
+    st.divider()
+    
+    with st.form("feedback_form", clear_on_submit=True):
+        st.markdown("##### 📋 Additional Comments")
+        
+        col1, col2 = st.columns(2)
+        with col1:
+            user_name = st.text_input("Full Name (Optional)")
+        with col2:
+            user_email = st.text_input("Email (Optional)")
+        
+        observation = st.text_area("Your Observations & Suggestions", height=150)
+        
+        submit = st.form_submit_button("📤 Submit Feedback", use_container_width=True)
+        
+        if submit:
+            st.success("✅ Thank you! The form layout is ready for Google Sheets integration.")
+            st.balloons()
+
+# =============================================================================
+# 11. الوثائق
+# =============================================================================
+def show_documentation():
+    st.header("📚 Technical Documentation & Methodology")
+    
+    doc_tabs = st.tabs(["Methodology", "Glossary", "Disclaimer"])
+    
+    with doc_tabs[0]:
+        st.subheader("Core Model Information")
         st.markdown("""
-        **Welcome to the ASA-PREDICTION MODEL 2!**  
-        This dashboard integrates advanced Machine Learning (Multi-Output Random Forest) with 
-        standard engineering equations (ACI) to provide a comprehensive, real-time evaluation 
-        of concrete mixtures across three main pillars: Structural, Environmental, and Economic.
+        - **Algorithm:** Random Forest Regression (Multi-output Architecture)
+        - **Database:** 1,701 Experimental Samples
+        - **Methodology:** Integrates AI prediction with standard ACI 318 equations and Multi-Criteria Decision Making (MCDM).
+        - **Robustness:** Validated using 5-Fold Cross Validation
         """)
     
-    with tabs[1]: show_input_section()
-    with tabs[2]: show_optimizer()
-    with tabs[3]: show_performance()
-    with tabs[4]: st.write("Feedback form will be integrated here.")
-    with tabs[5]: st.write("Methodology and standard ACI 318 calculations documented here.")
+    with doc_tabs[1]:
+        st.subheader("Glossary of Terms")
+        st.markdown("""
+        - **CS_28:** Compressive Strength at 28 days
+        - **STS:** Splitting Tensile Strength
+        - **MCDM:** Multi-Criteria Decision Making
+        - **Radar Chart:** Visual normalization of strength, cost, and eco-impact.
+        """)
+    
+    with doc_tabs[2]:
+        st.subheader("Disclaimer")
+        st.warning("""
+        All outputs provided by this application are predictive results generated by Artificial Intelligence models based on experimental datasets. These results are for guidance purposes only and should not replace laboratory testing or physical verification of concrete mixes. The researcher and the university hold no liability for any misuse of these predictions or any damages arising from reliance on them without professional engineering supervision and compliance with established national and international building codes.
+        """)
+
+# =============================================================================
+# 12. الدالة الرئيسية (Main)
+# =============================================================================
+def main():
+    # Footer CSS 
+    st.markdown("""
+        <style>
+        .footer { 
+            position: fixed; 
+            left: 0; 
+            bottom: 0; 
+            width: 100%; 
+            background-color: #f1f1f1; 
+            color: #555; 
+            text-align: center; 
+            padding: 10px; 
+            font-size: 14px; 
+            border-top: 1px solid #e7e7e7; 
+            z-index: 999;
+        }
+        </style>
+    """, unsafe_allow_html=True)
+    
+    if check_login():
+        show_academic_header()
+        
+        tabs = st.tabs(["🏠 Home", "🚀 Predictor", "⚖️ Optimizer", "📈 Performance", "📝 Feedback", "📚 Docs"])
+        
+        with tabs[0]:
+            st.markdown("### Welcome to ASA-PREDICTION MODEL 2 Dashboard")
+            st.markdown("#### 🎯 Your AI-Powered Tool for Eco-Efficient Concrete Design")
+            
+            info_col1, info_col2 = st.columns([2, 1])
+            
+            with info_col1:
+                st.info("""
+                **🔬 About This System:**
+                هذا النظام الذكي مصمم لدعم اتخاذ القرار في تصميم الخلطات الخرسانية الصديقة للبيئة 
+                من خلال التحليل المتعدد المعايير للجوانب الفنية والبيئية والاقتصادية.
+                
+                **✨ Key Features:**
+                - 🤖 AI-powered predictions using Multi-Output Random Forest
+                - 📊 Real-time evaluation of Structural, Environmental & Economic aspects
+                - ♻️ Eco-efficiency optimization engine
+                """)
+                
+                st.markdown("##### 🚀 Quick Start Guide:")
+                st.markdown("""
+                1. Navigate to **🚀 Predictor** tab.
+                2. Enter your 21 concrete mix parameters.
+                3. Update Dynamic Market Prices if needed.
+                4. Click "Run Prediction & Analysis".
+                5. Review the comprehensive Sustainability Radar.
+                """)
+            
+            with info_col2:
+                st.markdown("##### 📊 Model Stats")
+                st.metric("Database Size", "1,701 samples")
+                st.metric("Input Parameters", "21")
+                st.metric("Validation Method", "5-Fold CV")
+                st.success("✅ **Status:** Model Loaded & Ready")
+        
+        with tabs[1]: show_input_section()
+        with tabs[2]: show_optimizer()
+        with tabs[3]: show_performance()
+        with tabs[4]: handle_feedback()
+        with tabs[5]: show_documentation()
+        
+        # Footer
+        st.markdown("""
+            <div class="footer">
+                © 2026 Aya Mohammed Sanad Aboud | Structural Engineering Dept | Mansoura University
+            </div>
+        """, unsafe_allow_html=True)
 
 if __name__ == "__main__":
     main()
